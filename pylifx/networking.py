@@ -1,8 +1,7 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 23 14:36:22 2014
-
-@author: deryck
+@author: Deryck Arnold
 """
 
 from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST

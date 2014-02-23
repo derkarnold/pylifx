@@ -1,8 +1,7 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 23 21:25:01 2014
-
-@author: deryck
+@author: Deryck Arnold
 """
 
 SUNRISE = {

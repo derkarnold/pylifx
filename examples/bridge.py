@@ -1,12 +1,11 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb 20 23:08:51 2014
-
-@author: deryck
+@author: Deryck Arnold
 """
 
-from lifx import *
+from pylifx import LifxBulbBridge
 
 addr = 'D0:73:D5:XX:XX:XX'
-with LifxBulbBridge(addr, addr, intf_name='eth0') as bridge:
+with LifxBulbBridge(addr, addr) as bridge:
     bridge.start()

@@ -1,7 +1,6 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 22 20:23:08 2014
-
 @author: Deryck Arnold
 
 Huge thanks to Kevin Bowman(magicmonkey) and others for the lifxjs project on GitHub:

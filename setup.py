@@ -1,3 +1,9 @@
+#!/bin/python
+# -*- coding: utf-8 -*-
+"""
+@author: Deryck Arnold
+"""
+
 import os
 from setuptools import setup
 
@@ -20,7 +26,7 @@ setup(
     packages = ['pylifx'],
     long_description = read('README.txt'),
 	package_data={'': ['LICENSE.txt']},
-	install_requires = ['bitstring>=3.1.2', 'netifaces>=0.8'],
+	install_requires = ['bitstring>=3.1.2', 'netifaces>=0.7'],
     classifiers = [
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",

@@ -1,8 +1,7 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 22 20:58:53 2014
-
-@author: deryck
+@author: Deryck Arnold
 """
 
 def rgbToHsl(red, green, blue):
