@@ -22,7 +22,7 @@ setup(
     description = ("A Python library to control and monitor LIFX bulbs"),
     license = "Creative Commons Attribution 3.0 Unported License",
     keywords = "lifx smart light bulb",
-    url = "http://packages.python.org/pylifx",
+    url = "https://pypi.python.org/pypi/pylifx",
     packages = ['pylifx'],
     long_description = read('README.txt'),
 	package_data={'': ['LICENSE.txt']},
