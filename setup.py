@@ -33,7 +33,7 @@ setup(
     
     description = ('A Python library to control and monitor LIFX bulbs'),
     license = 'BSD',
-    keywords = 'lifx smart light bulb',
+    keywords = ['lifx', 'smart', 'light', 'bulb'],
     url = 'https://pypi.python.org/pypi/pylifx',
     packages = ['pylifx', 'examples'],
     long_description = read('README.txt'),

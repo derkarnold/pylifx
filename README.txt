@@ -2,6 +2,7 @@ A Python library to control and monitor LIFX bulbs. Also provides a workaround
 for users having issues with controlling LIFX bulbs on their network.
 
 GitHub: https://github.com/derkarnold/pylifx
+PyPi: https://pypi.python.org/pypi/pylifx
 
 Originally written to allow the LIFX bulb to work in non-standard networks, but
 it is growing to be much more.
@@ -25,6 +26,13 @@ Upcoming features:
 
   * Auto-discovery of bulbs (yes, should have been there already).
   * Support for more than one bulb per bridge (waiting on another bulb to arrive).
+
+How to install:
+
+  * Get Python (tested with 2.7, others may work). I use the Python(x, y) distribution.
+  * Ensure you have the Python setuptools.
+  * Run "easy_install pylifx" from a command prompt or terminal.
+  * You're done.
 
 Two common issues with installing:
 
