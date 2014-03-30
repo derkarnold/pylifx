@@ -15,7 +15,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-__all__ = ['colour', 'networking', 'packet', 'pylifx']
+__all__ = ['networking', 'packet', 'pylifx']
 __licence__ = '''
 Copyright (c) 2014, Deryck Arnold
 All rights reserved.
@@ -30,7 +30,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 '''
 
 
-from colour import rgbToHsb
+from colorsys import rgb_to_hsv
 from threading import Lock
 from thread import start_new_thread
 from networking import LifxBulbTCPServer, LifxUDPSocket, get_interface, processMAC
@@ -136,7 +136,7 @@ class LifxController:
         """
         k = self._annotate_bulb_addr(bulb_addr)
         print 'Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], red, green, blue, fadeTime)
-        hue, saturation, brightness = rgbToHsb(red, green, blue)
+        hue, saturation, brightness = rgb_to_hsv(red, green, blue)
         self._set_colour(hue, saturation, brightness, 0, fadeTime, **k)
     
     def set_hsb(self, hue, saturation, brightness, fadeTime = 1, bulb_addr=None):
