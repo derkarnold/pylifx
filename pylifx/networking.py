@@ -31,8 +31,12 @@ _AVAILABLE_INTERFACES = {}
 # Only support IPv4. Broadcast isn't in IPv6.
 for intf_name in interfaces():
     addrs = ifaddresses(intf_name)
+    # Note: only supports first address with broadcast on interface.
     if addrs.has_key(AF_INET):
-        _AVAILABLE_INTERFACES[intf_name] = addrs[AF_INET][0]
+        for addr in addrs[AF_INET]:
+            if addr.has_key('broadcast'):
+                _AVAILABLE_INTERFACES[intf_name] = addr
+                break
 
 def get_interfaces():
     return _AVAILABLE_INTERFACES
