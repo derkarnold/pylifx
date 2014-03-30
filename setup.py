@@ -27,7 +27,7 @@ def read(fname):
 
 setup(
     name = 'pylifx',
-    version = '0.0.2',
+    version = '0.0.3',
     author = 'Deryck Arnold',
     author_email = 'derkarnold@gmail.com',
     
