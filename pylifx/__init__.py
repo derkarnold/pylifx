@@ -30,7 +30,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 '''
 
 
-from colour import rgbToHsb
+from colorsys import rgb_to_hsv
 from threading import Lock
 from thread import start_new_thread
 from networking import LifxBulbTCPServer, LifxUDPSocket, get_interface
@@ -97,7 +97,7 @@ class LifxController:
         
     def set_rgb(self, red, green, blue, fadeTime = 1):
         print 'Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds' % (self._name, red, green, blue, fadeTime)
-        hue, saturation, brightness = rgbToHsb(red, green, blue)
+        hue, saturation, brightness = rgb_to_hsv(red, green, blue)
         self._set_colour(hue, saturation, brightness, 0, fadeTime)
     
     def set_hsb(self, hue, saturation, brightness, fadeTime = 1):
