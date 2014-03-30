@@ -21,11 +21,11 @@ Current features:
     working out the LIFX protocol.
   * The ability to run "scenes" - provide a dictionary of times and colours and
     the library will do the rest (see examples/sunrise.py).
+  * Using multiple bulbs behind a single PAN gateway.
 
 Upcoming features:
 
   * Auto-discovery of bulbs (yes, should have been there already).
-  * Support for more than one bulb per bridge (waiting on another bulb to arrive).
 
 How to install:
 

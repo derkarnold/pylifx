@@ -33,7 +33,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 from colour import rgbToHsb
 from threading import Lock
 from thread import start_new_thread
-from networking import LifxBulbTCPServer, LifxUDPSocket, get_interface
+from networking import LifxBulbTCPServer, LifxUDPSocket, get_interface, processMAC
 from time import sleep
 
 _LIFX_PORT = 56700
@@ -63,7 +63,14 @@ def _smooth_gradient(gradient):
     return smoothed_gradient
 
 class LifxController:
-    def __init__(self, site_addr, bulb_addr = None, name = None, intf_name = None):
+    """
+    Class to interface with a LIFX controller.
+    
+    :param str site_addr: MAC address of the LIFX PAN gateway
+    :param str name: Label for this LIFX controller, or None to use the site_addr.
+    :param str intf_name: Network interface to use when sending packets to the LIFX PAN gateway.
+    """
+    def __init__(self, site_addr, name = None, intf_name = None):
         if site_addr is None:
             raise ValueError('site_addr cannot be None.')
         if name is None:
@@ -71,6 +78,10 @@ class LifxController:
         else:
             self._name = name
         net_intf = get_interface(intf_name)
+
+        # Always default to controlling all bulbs on the network.
+        # Individual bulbs can be controlled by parameters to the other methods.
+        bulb_addr = None
         self._socket = LifxUDPSocket(site_addr, bulb_addr, net_intf, _LIFX_PORT, _LIFX_PORT)
     
     def __enter__(self):
@@ -87,33 +98,101 @@ class LifxController:
             self._socket.close()
             self._socket = None
     
-    def on(self):
-        print 'Turning on', self._name
-        self._socket.send_to_bulb('setPowerState', onoff = 0xff)
+    def _annotate_bulb_addr(self, bulb_addr=None):
+        k = {}
+        if bulb_addr is not None:
+            k['bulb_addr'] = processMAC(bulb_addr)
+        return k
     
-    def off(self):
-        print 'Turning off', self._name
-        self._socket.send_to_bulb('setPowerState', onoff = 0x00)
+    def on(self, bulb_addr=None):
+        """
+        Turns on the light bulb.
         
-    def set_rgb(self, red, green, blue, fadeTime = 1):
-        print 'Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds' % (self._name, red, green, blue, fadeTime)
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Turning on', self._name if bulb_addr is None else k['bulb_addr']
+        self._socket.send_to_bulb('setPowerState', onoff = 0xff, **k)
+    
+    def off(self, bulb_addr=None):
+        """
+        Turns off the light bulb.
+        
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Turning off', self._name if bulb_addr is None else k['bulb_addr']
+        self._socket.send_to_bulb('setPowerState', onoff = 0x00, **k)
+        
+    def set_rgb(self, red, green, blue, fadeTime = 1, bulb_addr=None):
+        """
+        Sets the colour of the light bulb, using red, green and blue.
+        
+        :param float red: Level between 0.0 and 1.0 for the brightness of the red channel.
+        :param float green: Level between 0.0 and 1.0 for the brightness of the green channel.
+        :param float blue: Level between 0.0 and 1.0 for the brightness of the blue channel.
+        :param float fadeTime: Time, in seconds, to perform the colour fade transition over.
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], red, green, blue, fadeTime)
         hue, saturation, brightness = rgbToHsb(red, green, blue)
-        self._set_colour(hue, saturation, brightness, 0, fadeTime)
+        self._set_colour(hue, saturation, brightness, 0, fadeTime, **k)
     
-    def set_hsb(self, hue, saturation, brightness, fadeTime = 1):
-        print 'Setting colour of %s to (H:%f, S:%f, B:%f) over %d seconds' % (self._name, hue, saturation, brightness, fadeTime)
-        self._set_colour(hue, saturation, brightness, 0, fadeTime)
+    def set_hsb(self, hue, saturation, brightness, fadeTime = 1, bulb_addr=None):
+        """
+        Sets the colour of the light bulb, using hue, saturation and brightness.
+        
+        :param float hue: Value between 0.0 and 1.0 indicating the hue of the colour to set, with red being 0.0.
+        :param float saturation: Value between 0.0 and 1.0 indicating the saturation of the colour to set, with 0.0 being no colour saturation.
+        :param float brightness: Value between 0.0 and 1.0 indicating the brightness of the colour to set, with 0.0 being darkest.
+        :param float fadeTime: Time, in seconds, to perform the colour fade transition over.
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Setting colour of %s to (H:%f, S:%f, B:%f) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], hue, saturation, brightness, fadeTime)
+        self._set_colour(hue, saturation, brightness, 0, fadeTime, **k)
     
-    def set_temperature(self, kelvin, fadeTime = 1):
-        print 'Setting colour temperature of %s to (%dK) over %d seconds' % (self._name, kelvin, fadeTime)
-        self._set_colour(0, 0, 1.0, kelvin, fadeTime)
+    def set_temperature(self, kelvin, fadeTime = 1, bulb_addr=None):
+        """
+        Sets the colour of the light bulb to white, with the given colour temperature.
+        
+        :param int kelvin: Colour temperature to set to the bulb to, between 0 and 65535.
+        :param float fadeTime: Time, in seconds, to perform the colour fade transition over.
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Setting colour temperature of %s to (%dK) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], kelvin, fadeTime)
+        self._set_colour(0, 0, 1.0, kelvin, fadeTime, **k)
     
-    def run_scene(self, gradient):
+    def run_scene(self, gradient, bulb_addr=None):
+        """
+        Runs a scene on a given bulb.  The gradient is a dict of values, with the key
+        being the number of seconds for the given gradient "keyframe", and the value being
+        a tuple of ``(red, green, blue)`` values.
+        
+        The scene is interpolated to 1-second intervals, and then executed synchronously.
+        
+        :param dict gradient: The scene to run.
+        :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
+
+        """
         for red, green, blue in _smooth_gradient(gradient):
-            self.set_rgb(red, green, blue, fadeTime = 1)
-            sleep(1)    
-    
-    def _set_colour(self, hue, saturation, brightness, kelvin, fadeTime):
+            self.set_rgb(red, green, blue, fadeTime = 1, bulb_addr=bulb_addr)
+            sleep(1)
+
+    def get_light_state(self, bulb_addr=None):
+        """
+        Sends a query for the status of lights using this PAN Gateway.
+
+        """
+        k = self._annotate_bulb_addr(bulb_addr)
+        print 'Getting light state', self._name if bulb_addr is None else k['bulb_addr']
+        self._socket.send_to_bulb('getLightState')
+
+    def _set_colour(self, hue, saturation, brightness, kelvin, fadeTime, **kwargs):
         fadeTime = fadeTime * _ONE_SECOND
         hue = hue * 0xffff
         saturation = saturation * 0xffff
@@ -122,11 +201,11 @@ class LifxController:
                    stream = 0,
                    hue = hue, saturation = saturation, brightness = brightness,
                    kelvin = kelvin,
-                   fadeTime = fadeTime)
+                   fadeTime = fadeTime, **kwargs)
 
 class LifxBulbEmulator:
     _properties = {
-        'bulbLabel': '\x00' * 32,#'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        'bulbLabel': '\x00' * 32,
         'hue': 0,
         'saturation': 0,
         'brightness': 0xffff,
