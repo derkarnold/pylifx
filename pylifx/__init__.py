@@ -113,7 +113,7 @@ class LifxController:
         k = self._annotate_bulb_addr(bulb_addr)
         print 'Turning on', self._name if bulb_addr is None else k['bulb_addr']
         self._socket.send_to_bulb('setPowerState', onoff = 0xff, **k)
-    
+
     def off(self, bulb_addr=None):
         """
         Turns off the light bulb.
