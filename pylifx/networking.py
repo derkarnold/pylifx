@@ -15,8 +15,9 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST
-from packet import encode, decode
+from __future__ import absolute_import
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST, error
+from .packet import encode, decode
 from re import match
 from thread import start_new_thread
 from netifaces import ifaddresses, interfaces
@@ -69,12 +70,13 @@ def processMAC(mac):
     else:
         return ''.join(m.groups())
 
-class LifxSocket:
+class LifxSocket(object):
     def __init__(self, site_addr, bulb_addr, sock, net_addr):
         self._site_addr = processMAC(site_addr)
         self._bulb_addr = processMAC(bulb_addr)
         self._socket = sock
         self._net_addr = net_addr
+        self._socket.settimeout(1.0)
         
     def __del__(self):
         self.close()
@@ -97,6 +99,9 @@ class LifxSocket:
         self._send(_LIFX_PROTO_ASBULB, packet_name, kwargs)
         
     def recv(self):
+        """
+        Returns a tuple of ((method, args), addr)
+        """
         while True:
             raw_data, addr = self._socket.recvfrom(_RECV_BUFFER_SIZE)
             if raw_data == None or len(raw_data) == 0:
@@ -105,7 +110,14 @@ class LifxSocket:
                 return decode(raw_data), addr
             except Exception as e:
                 print 'Invalid packet from', self._net_addr, '-', e
-    
+
+    def recv_forever(self):
+        while True:
+            try:
+                yield self.recv()
+            except error:
+                break
+
     def _send(self, protocol, packet_name, kwargs):
         packet = dict(
             protocol=protocol,
