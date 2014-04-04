@@ -61,16 +61,42 @@ class LifxBulb(object):
 
     def __init__(self, controller, bulb_addr, label=None):
         self._controller = controller
-        self._bulb_addr = bulb_addr
+        self._bulb_addr = processMAC(bulb_addr)
         self._label = label
-    
+
     def on(self):
         return self._controller.on(self._bulb_addr)
+
     def off(self):
         return self._controller.off(self._bulb_addr)
+
+    def set_rgb(self, red, green, blue, fadeTime=1):
+        return self._controller.set_rgb(red, green, blue, fadeTime, self._bulb_addr)
+
+    def set_hsb(self, hue, saturation, brightness, fadeTime=1):
+        return self._controller.set_hsb(hue, saturation, brightness, fadeTime, self._bulb_addr)
+
+    def set_temperature(self, kelvin, fadeTime=1):
+        return self._controller.set_temperature(kelvin, fadeTime, self._bulb_addr)
+
     def __repr__(self):
         return '<LifxBulb: addr=%r, name=%r, controller=%r>' % (self._bulb_addr, self._label, self._controller)
-        
+
+    def __cmp__(self, other):
+        return cmp(self._bulb_addr, other._bulb_addr)
+
+    @property
+    def label(self):
+        return self._label
+
+    @property
+    def bulb_addr(self):
+        return self._bulb_addr
+
+    @property
+    def controller(self):
+        return self._controller
+
 class LifxController(object):
     """
     Class to interface with a LIFX controller.
@@ -215,6 +241,8 @@ class LifxController(object):
     def find_bulbs(self):
         """
         Populate the list of bulbs.
+        
+        This is made available in the ``bulbs`` attribute.
         """
         # swallow events first
         for x in self._socket.recv_forever(): pass
@@ -225,6 +253,8 @@ class LifxController(object):
         for msg, src in self._socket.recv_forever():
             if msg[0] == 'lightStatus':
                 # TODO: filter only packets from the bulb we are actually interacting with
+                if msg[1]['bulb_addr'] in [x.label for x in self.bulbs]:
+                    continue
                 self.bulbs.append(LifxBulb(self, msg[1]['bulb_addr'], msg[1]['bulbLabel'].strip('\x00')))
 
     def bulb_by_label(self, label):
@@ -240,6 +270,15 @@ class LifxController(object):
         for bulb in self.bulbs:
             if bulb._label == label:
                 return bulb
+    def bulb_by_addr(self, addr):
+        addr = processMAC(addr)
+        # if there's an existing bulb entry, re-use it
+        for bulb in self.bulbs:
+            if bulb._bulb_abbr == addr:
+                return bulb
+        # no bulb entry, create a new one but don't cache it because we don't know the
+        # label.
+        return LifxBulb(self, addr)
 
 class LifxBulbEmulator:
     _properties = {
