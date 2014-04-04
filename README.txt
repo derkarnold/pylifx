@@ -7,6 +7,8 @@ PyPi: https://pypi.python.org/pypi/pylifx
 Originally written to allow the LIFX bulb to work in non-standard networks, but
 it is growing to be much more.
 
+Contributors: Deryck Arnold, Michael Farrell (micolous)
+
 Huge thanks to Kevin Bowman(magicmonkey) and others for the lifxjs project on GitHub:
     https://github.com/magicmonkey/lifxjs/
 
