@@ -15,8 +15,9 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST
-from packet import encode, decode
+from __future__ import absolute_import
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SO_BROADCAST, error
+from .packet import encode, decode
 from re import match
 from thread import start_new_thread
 from netifaces import ifaddresses, interfaces
@@ -25,7 +26,7 @@ _RECV_BUFFER_SIZE = 1024
 _LIFX_PROTO_TOBULB = 13312
 _LIFX_PROTO_ASBULB = 21504
 _BLANK_MAC = '00:00:00:00:00:00'
-_MAC_ADDR_FORMAT = '([A-z0-9]{2})[:\-]([A-z0-9]{2})[:\-]([A-z0-9]{2})[:\-]([A-z0-9]{2})[:\-]([A-z0-9]{2})[:\-]([A-z0-9]{2})'
+_MAC_ADDR_FORMAT = '([A-Fa-f0-9]{2})[:\-]?([A-Fa-f0-9]{2})[:\-]?([A-Fa-f0-9]{2})[:\-]?([A-Fa-f0-9]{2})[:\-]?([A-Fa-f0-9]{2})[:\-]?([A-Fa-f0-9]{2})'
 _AVAILABLE_INTERFACES = {}
 
 # Only support IPv4. Broadcast isn't in IPv6.
@@ -47,21 +48,35 @@ def get_interface(intf_name):
     else:
         return _AVAILABLE_INTERFACES[intf_name]
 
-def _processMAC(mac):
+def processMAC(mac):
+    """
+    Validate and strip separator characters from a MAC address, given in one of the
+    following formats:
+    
+    -  ``00:11:22:33:44:55``
+    -  ``00-11-22-33-44-55``
+    -  ``001122334455``
+    
+    :param str mac: MAC address to reformat.
+    :returns: MAC address without separator characters.
+    :rtype: str
+    :raises ValueError: If MAC address is not valid or in an unknown format.
+    """
     if mac is None:
         mac = _BLANK_MAC
     m = match(_MAC_ADDR_FORMAT, mac)
     if m is None:
-        raise ValueError('invalid MAC address:', mac, '. Address must be colon or hyphen delimited.')
+        raise ValueError('invalid MAC address:', mac, '. Address may be colon or hyphen delimited.')
     else:
         return ''.join(m.groups())
 
-class LifxSocket:
+class LifxSocket(object):
     def __init__(self, site_addr, bulb_addr, sock, net_addr):
-        self._site_addr = _processMAC(site_addr)
-        self._bulb_addr = _processMAC(bulb_addr)
+        self._site_addr = processMAC(site_addr)
+        self._bulb_addr = processMAC(bulb_addr)
         self._socket = sock
         self._net_addr = net_addr
+        self._socket.settimeout(1.0)
         
     def __del__(self):
         self.close()
@@ -84,6 +99,9 @@ class LifxSocket:
         self._send(_LIFX_PROTO_ASBULB, packet_name, kwargs)
         
     def recv(self):
+        """
+        Returns a tuple of ((method, args), addr)
+        """
         while True:
             raw_data, addr = self._socket.recvfrom(_RECV_BUFFER_SIZE)
             if raw_data == None or len(raw_data) == 0:
@@ -92,13 +110,23 @@ class LifxSocket:
                 return decode(raw_data), addr
             except Exception as e:
                 print 'Invalid packet from', self._net_addr, '-', e
-    
+
+    def recv_forever(self):
+        while True:
+            try:
+                yield self.recv()
+            except error:
+                break
+
     def _send(self, protocol, packet_name, kwargs):
-        packet = encode(packet_name,
-                        protocol = protocol,
-                        site_addr = self._site_addr,
-                        bulb_addr = self._bulb_addr,
-                        **kwargs)
+        packet = dict(
+            protocol=protocol,
+            site_addr=self._site_addr,
+            bulb_addr=self._bulb_addr
+        )
+        packet.update(kwargs)
+
+        packet = encode(packet_name, **packet)
         self._send_raw(packet)
     
     def _send_raw(self, packet):
