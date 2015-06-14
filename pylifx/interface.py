@@ -16,13 +16,18 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 """
 
 from __future__ import absolute_import
+
 from colorsys import rgb_to_hsv
 from threading import Lock
 from thread import start_new_thread
-from .networking import LifxBulbTCPServer, LifxUDPSocket, get_interface, processMAC
 from time import sleep
+import logging
+
+from .networking import LifxBulbTCPServer, LifxUDPSocket, get_interface, processMAC
 
 __all__ = ['LifxController', 'LifxBulbEmulator', 'LifxBulbBridge']
+
+logger = logging.getLogger(__name__)
 
 
 _LIFX_PORT = 56700
@@ -32,7 +37,7 @@ _ONE_SECOND = 10000
 
 def _interpolate(min_x, max_x, min_fx, max_fx, x):
     range_x = max_x - min_x
-    return min_fx + (max_fx - min_fx)*(x - min_x)/range_x        
+    return min_fx + (max_fx - min_fx)*(x - min_x)/range_x
 
 def _smooth_gradient(gradient):
     smoothed_gradient = []
@@ -54,7 +59,7 @@ def _smooth_gradient(gradient):
 class LifxBulb(object):
     """
     Class to represent a bulb on a :class:`LifxController`.
-    
+
     :param LifxController controller: Controller this bulb is associated with.
     :param str bulb_addr: The MAC address of the bulb.
     """
@@ -100,7 +105,7 @@ class LifxBulb(object):
 class LifxController(object):
     """
     Class to interface with a LIFX controller.
-    
+
     :param str site_addr: MAC address of the LIFX PAN gateway
     :param str name: Label for this LIFX controller, or None to use the site_addr.
     :param str intf_name: Network interface to use when sending packets to the LIFX PAN gateway.
@@ -119,51 +124,51 @@ class LifxController(object):
         bulb_addr = None
         self.bulbs = None
         self._socket = LifxUDPSocket(site_addr, bulb_addr, net_intf, _LIFX_PORT, _LIFX_PORT)
-    
+
     def __enter__(self):
         return self
-        
+
     def __exit__(self, type, value, traceback):
         self.close()
-        
+
     def __del__(self):
         self.close()
-    
+
     def close(self):
         if self._socket is not None:
             self._socket.close()
             self._socket = None
-    
+
     def _annotate_bulb_addr(self, bulb_addr=None):
         k = {}
         if bulb_addr is not None:
             k['bulb_addr'] = processMAC(bulb_addr)
         return k
-    
+
     def on(self, bulb_addr=None):
         """
         Turns on the light bulb.
-        
+
         :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Turning on', self._name if bulb_addr is None else k['bulb_addr']
+        logger.info('Turning on %s', self._name if bulb_addr is None else k['bulb_addr'])
         self._socket.send_to_bulb('setPowerState', onoff = 0xff, **k)
 
     def off(self, bulb_addr=None):
         """
         Turns off the light bulb.
-        
+
         :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Turning off', self._name if bulb_addr is None else k['bulb_addr']
+        logger.info('Turning off %s', self._name if bulb_addr is None else k['bulb_addr'])
         self._socket.send_to_bulb('setPowerState', onoff = 0x00, **k)
-        
+
     def set_rgb(self, red, green, blue, fadeTime = 1, bulb_addr=None):
         """
         Sets the colour of the light bulb, using red, green and blue.
-        
+
         :param float red: Level between 0.0 and 1.0 for the brightness of the red channel.
         :param float green: Level between 0.0 and 1.0 for the brightness of the green channel.
         :param float blue: Level between 0.0 and 1.0 for the brightness of the blue channel.
@@ -171,14 +176,14 @@ class LifxController(object):
         :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], red, green, blue, fadeTime)
+        logger.info('Setting colour of %s to (R:%f, G:%f, B:%f) over %d seconds', self._name if bulb_addr is None else k['bulb_addr'], red, green, blue, fadeTime)
         hue, saturation, brightness = rgb_to_hsv(red, green, blue)
         self._set_colour(hue, saturation, brightness, 0, fadeTime, **k)
-    
+
     def set_hsb(self, hue, saturation, brightness, fadeTime = 1, bulb_addr=None):
         """
         Sets the colour of the light bulb, using hue, saturation and brightness.
-        
+
         :param float hue: Value between 0.0 and 1.0 indicating the hue of the colour to set, with red being 0.0.
         :param float saturation: Value between 0.0 and 1.0 indicating the saturation of the colour to set, with 0.0 being no colour saturation.
         :param float brightness: Value between 0.0 and 1.0 indicating the brightness of the colour to set, with 0.0 being darkest.
@@ -187,30 +192,30 @@ class LifxController(object):
 
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Setting colour of %s to (H:%f, S:%f, B:%f) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], hue, saturation, brightness, fadeTime)
+        logger.info('Setting colour of %s to (H:%f, S:%f, B:%f) over %d seconds', (self._name if bulb_addr is None else k['bulb_addr'], hue, saturation, brightness, fadeTime)
         self._set_colour(hue, saturation, brightness, 0, fadeTime, **k)
-    
+
     def set_temperature(self, kelvin, fadeTime = 1, bulb_addr=None):
         """
         Sets the colour of the light bulb to white, with the given colour temperature.
-        
+
         :param int kelvin: Colour temperature to set to the bulb to, between 0 and 65535.
         :param float fadeTime: Time, in seconds, to perform the colour fade transition over.
         :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
 
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Setting colour temperature of %s to (%dK) over %d seconds' % (self._name if bulb_addr is None else k['bulb_addr'], kelvin, fadeTime)
+        logger.info('Setting colour temperature of %s to (%dK) over %d seconds', (self._name if bulb_addr is None else k['bulb_addr'], kelvin, fadeTime)
         self._set_colour(0, 0, 1.0, kelvin, fadeTime, **k)
-    
+
     def run_scene(self, gradient, bulb_addr=None):
         """
         Runs a scene on a given bulb.  The gradient is a dict of values, with the key
         being the number of seconds for the given gradient "keyframe", and the value being
         a tuple of ``(red, green, blue)`` values.
-        
+
         The scene is interpolated to 1-second intervals, and then executed synchronously.
-        
+
         :param dict gradient: The scene to run.
         :param str bulb_addr: (optional) MAC address of the bulb to control, or None to control all bulbs using this PAN gateway.
 
@@ -225,7 +230,7 @@ class LifxController(object):
 
         """
         k = self._annotate_bulb_addr(bulb_addr)
-        print 'Getting light state', self._name if bulb_addr is None else k['bulb_addr']
+        logger.info('Getting light state', self._name if bulb_addr is None else k['bulb_addr'])
         self._socket.send_to_bulb('getLightState')
 
     def _set_colour(self, hue, saturation, brightness, kelvin, fadeTime, **kwargs):
@@ -238,10 +243,11 @@ class LifxController(object):
                    hue = hue, saturation = saturation, brightness = brightness,
                    kelvin = kelvin,
                    fadeTime = fadeTime, **kwargs)
+
     def find_bulbs(self):
         """
         Populate the list of bulbs.
-        
+
         This is made available in the ``bulbs`` attribute.
         """
         # swallow events first
@@ -260,11 +266,11 @@ class LifxController(object):
     def bulb_by_label(self, label):
         """
         Gets a bulb by it's label.
-        
+
         Returns None if the bulb does not exist.
-        
+
         Requires that :meth:`find_bulbs` is called first.
-        
+
         :rtype:`LifxBulb`
         """
         for bulb in self.bulbs:
@@ -292,22 +298,22 @@ class LifxBulbEmulator:
         'dim': 100,
         'kelvin': 3500,
     }
-    
+
     def __init__(self, site_addr, bulb_addr, intf_name = None):
         self._prop_lock = Lock()
         net_intf = get_interface(intf_name)
         self._tcpsock = LifxBulbTCPServer(net_intf, self._handle_sock, _LIFX_PORT)
         self._udpsock = LifxUDPSocket(site_addr, bulb_addr, net_intf, _LIFX_PORT, _LIFX_PORT)
-    
+
     def __enter__(self):
         return self
-        
+
     def __exit__(self, type, value, traceback):
         self.close()
-    
+
     def __del__(self):
         self.close()
-    
+
     def close(self):
         if self._udpsock is not None:
             self._udpsock.close()
@@ -315,31 +321,31 @@ class LifxBulbEmulator:
         if self._tcpsock is not None:
             self._tcpsock.close()
             self._tcpsock = None
-    
+
     def start(self):
         start_new_thread(self._handle_sock, (self._udpsock,))
         self._tcpsock.start()
-    
+
     def _handle_sock(self, lifx_socket):
         try:
             while True:
                 ((msg_type, msg_data), addr) = lifx_socket.recv()
-                
+
                 if addr is not None and addr[0] == self._tcpsock.net_intf['addr']:
                     continue
                 self._msg_recevied(lifx_socket, msg_type, msg_data)
         except Exception as e:
-            print 'Exception on', lifx_socket, '-', e
+            logger.exception('Exception on %s', lifx_socket)
         finally:
             try:
-                print 'Closing', lifx_socket
+                logger.info('Closing %s', lifx_socket)
                 lifx_socket.close()
             except:
                 pass
-    
+
     def _msg_recevied(self, lifx_socket, msg_type, msg_data):
         if msg_type != 'getPanGateway': # too spammy.
-            print lifx_socket, msg_type, msg_data
+            logger.debug(lifx_socket, msg_type, msg_data)
         if msg_type == 'getPanGateway':
             lifx_socket.send_as_bulb('panGateway', service = 2, port = _LIFX_PORT)
             lifx_socket.send_as_bulb('panGateway', service = 1, port = _LIFX_PORT)
@@ -356,23 +362,23 @@ class LifxBulbEmulator:
             self._send_power_state(lifx_socket)
         elif msg_type == 'getPowerState':
             self._send_power_state(lifx_socket)
-    
+
     def _copy_props(self, from_msg):
         with self._prop_lock:
             for key, value in from_msg.items():
                 if self._properties.has_key(key):
                     self._properties[key] = value
-    
+
     def _send_light_state(self, sock):
         with self._prop_lock:
             sock.send_as_bulb('lightStatus', **self._properties)
             self._udpsock.send_as_bulb('lightStatus', **self._properties)
-            
+
     def _send_power_state(self, sock ):
         with self._prop_lock:
             sock.send_as_bulb('powerState', **self._properties)
             self._udpsock.send_as_bulb('powerState', **self._properties)
-            
+
 class LifxBulbBridge(LifxBulbEmulator):
     _reserved_fields = {
         'bulb_addr',
@@ -381,7 +387,7 @@ class LifxBulbBridge(LifxBulbEmulator):
     }
     def __init__(self, site_addr, bulb_addr, intf_name = None):
         LifxBulbEmulator.__init__(self, site_addr, bulb_addr, intf_name)
-        
+
     def _msg_recevied(self, lifx_socket, msg_type, msg_data):
         LifxBulbEmulator._msg_recevied(self, lifx_socket, msg_type, msg_data)
         if not msg_type.startswith('getPanGateway'):
