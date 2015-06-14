@@ -243,6 +243,7 @@ class LifxController(object):
                    hue = hue, saturation = saturation, brightness = brightness,
                    kelvin = kelvin,
                    fadeTime = fadeTime, **kwargs)
+
     def find_bulbs(self):
         """
         Populate the list of bulbs.
